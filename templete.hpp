@@ -1,6 +1,9 @@
 //#define //_GLIBCXX_DEBUG
 #include <bits/stdc++.h>
 #include <atcoder/all>
+#include "debug.hpp"
+#include "print.hpp"
+#include "input.hpp"
 using namespace std;
 using namespace atcoder;
 /*long long型*/
