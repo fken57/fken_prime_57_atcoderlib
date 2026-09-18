@@ -1,5 +1,6 @@
-#include "../../templete.hpp";
-#include "../extGCD.hpp";
+#pragma once
+
+#include "../extGCD.hpp"
 
 /*@param .firstがak .secondがb*/
 struct LinerDiphantineEquationAns{

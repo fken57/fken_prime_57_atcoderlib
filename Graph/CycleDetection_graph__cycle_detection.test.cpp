@@ -1,11 +1,6 @@
 // library-checker-judge test case
-// problem: tree/jump_on_tree
-// library: Tree/TreeDoubling.hpp
-
-//#define //_GLIBCXX_DEBUG
-//#define //_GLIBCXX_DEBUG
-//#define //_GLIBCXX_DEBUG
-//#define //_GLIBCXX_DEBUG
+// problem: graph/cycle_detection
+// library: Graph/CycleDetection.hpp
 
 
 
@@ -1033,125 +1028,147 @@ inline constexpr array<ull, 20> pow10ll{
 #ifndef FIB_NO_MAIN
 
 #endif
-// Injecting ../template.hpp <- _fib/Tree/TreeDoubling.hpp
+// Injecting ../template.hpp <- _fib/Graph/CycleDetection.hpp
 
-class TreeDoubling {
-public:
-    Graph G;
-    vector<vector<int>> parent;
-    int DS = 1;
-    int start = 0;
-    vector<int> depth;
-    ll N = 0;
+struct GraphCycle {
+    vector<int> vertices;
+    vector<int> edges;
 
-    explicit TreeDoubling(const Graph& graph, int root = 0)
-        : G(graph), start(root), depth(graph.size(), -1), N(graph.size()) {
-        if (N == 0) return;
-        assert(0 <= root && root < N);
-        while ((1ULL << DS) <= static_cast<unsigned long long>(N)) ++DS;
-        parent.assign(N, vector<int>(DS, -1));
-        build();
-    }
-
-    int kth_ancestor(int vertex, long long steps) const {
-        if (steps < 0) return -1;
-        for (int bit = 0; bit < DS && vertex != -1; ++bit) {
-            if ((steps >> bit) & 1LL) vertex = parent[vertex][bit];
-        }
-        if ((steps >> DS) != 0) return -1;
-        return vertex;
-    }
-
-    int lca(int left, int right) const {
-        assert(0 <= left && left < N && 0 <= right && right < N);
-        if (depth[left] < depth[right]) swap(left, right);
-        left = kth_ancestor(left, depth[left] - depth[right]);
-        if (left == right) return left;
-        for (int bit = DS - 1; bit >= 0; --bit) {
-            if (parent[left][bit] != parent[right][bit]) {
-                left = parent[left][bit];
-                right = parent[right][bit];
-            }
-        }
-        return parent[left][0];
-    }
-
-    int distance(int left, int right) const {
-        const int ancestor = lca(left, right);
-        return depth[left] + depth[right] - 2 * depth[ancestor];
-    }
-
-    int jump(int from, int to, long long steps) const {
-        const int ancestor = lca(from, to);
-        const long long up = depth[from] - depth[ancestor];
-        const long long down = depth[to] - depth[ancestor];
-        if (steps < 0 || steps > up + down) return -1;
-        if (steps <= up) return kth_ancestor(from, steps);
-        return kth_ancestor(to, up + down - steps);
-    }
-
-    int LCA(int left, int right) const { return lca(left, right); }
-    int JumpOnTree(int from, int to, int steps) const {
-        return jump(from, to, steps);
-    }
-
-private:
-    void build() {
-        queue<int> queue;
-        queue.push(start);
-        depth[start] = 0;
-        while (!queue.empty()) {
-            const int vertex = queue.front();
-            queue.pop();
-            for (const ll next_value : G[vertex]) {
-                const int next = static_cast<int>(next_value);
-                if (next == parent[vertex][0]) continue;
-                if (depth[next] != -1) continue;
-                parent[next][0] = vertex;
-                depth[next] = depth[vertex] + 1;
-                queue.push(next);
-            }
-        }
-        assert(find(depth.begin(), depth.end(), -1) == depth.end() &&
-               "TreeDoubling input must be connected");
-
-        for (int bit = 1; bit < DS; ++bit) {
-            for (int vertex = 0; vertex < N; ++vertex) {
-                const int middle = parent[vertex][bit - 1];
-                if (middle != -1) parent[vertex][bit] = parent[middle][bit - 1];
-            }
-        }
-    }
+    explicit operator bool() const { return !edges.empty(); }
 };
-// Injecting Tree/TreeDoubling.hpp <- _fib/Tree/TreeDoubling_tree__jump_on_tree.test.cpp
 
-void solve(){
-    ll N,Q;
-    cin >> N >> Q;
-    Graph G(N);
-    rep(i,0,N-1){
-        ll u,v;
-        cin >> u >> v;
-        G[u].push_back(v);
-        G[v].push_back(u);
+namespace fib_cycle_detail {
+
+inline GraphCycle restore_cycle(int from,
+                                int ancestor,
+                                int closing_edge,
+                                const vector<int>& parent,
+                                const vector<int>& parent_edge) {
+    vector<int> vertices{from};
+    vector<int> edges;
+    for (int vertex = from; vertex != ancestor; vertex = parent[vertex]) {
+        assert(vertex != -1);
+        edges.push_back(parent_edge[vertex]);
+        vertices.push_back(parent[vertex]);
     }
-
-    TreeDoubling TD(G);
-
-    while(Q--){
-        int u,v,k;
-        cin >> u >> v >> k;
-
-        cout << TD.JumpOnTree(u,v,k) << '\n';
-    }
+    reverse(vertices.begin(), vertices.end());
+    reverse(edges.begin(), edges.end());
+    edges.push_back(closing_edge);
+    return {vertices, edges};
 }
 
-int main(){
-    std::cin.tie(nullptr);
-    std::ios_base::sync_with_stdio(false);
-    ll T=1;
-    //cin >> T;
-    while(T--){
-        solve();
+}  // namespace fib_cycle_detail
+
+// The i-th input pair is directed from edges[i].first to edges[i].second.
+inline GraphCycle find_directed_cycle(
+    int n,
+    const vector<pair<int, int>>& edges) {
+    vector<vector<int>> graph(n);
+    for (int id = 0; id < static_cast<int>(edges.size()); ++id) {
+        const auto [from, to] = edges[id];
+        assert(0 <= from && from < n && 0 <= to && to < n);
+        graph[from].push_back(id);
     }
+
+    vector<int> color(n, 0), parent(n, -1), parent_edge(n, -1);
+    struct Frame {
+        int vertex;
+        int next_edge;
+    };
+
+    for (int start = 0; start < n; ++start) {
+        if (color[start] != 0) continue;
+        vector<Frame> stack{{start, 0}};
+        color[start] = 1;
+        while (!stack.empty()) {
+            Frame& frame = stack.back();
+            const int vertex = frame.vertex;
+            if (frame.next_edge == static_cast<int>(graph[vertex].size())) {
+                color[vertex] = 2;
+                stack.pop_back();
+                continue;
+            }
+
+            const int edge_id = graph[vertex][frame.next_edge++];
+            const int to = edges[edge_id].second;
+            if (color[to] == 0) {
+                color[to] = 1;
+                parent[to] = vertex;
+                parent_edge[to] = edge_id;
+                stack.push_back({to, 0});
+            } else if (color[to] == 1) {
+                return fib_cycle_detail::restore_cycle(
+                    vertex, to, edge_id, parent, parent_edge);
+            }
+        }
+    }
+    return {};
+}
+
+// Supports self loops and parallel edges. The returned vertices and edges have
+// the same length; edges[i] connects vertices[i] and vertices[(i + 1) % L].
+inline GraphCycle find_undirected_cycle(
+    int n,
+    const vector<pair<int, int>>& edges) {
+    vector<vector<int>> graph(n);
+    for (int id = 0; id < static_cast<int>(edges.size()); ++id) {
+        const auto [u, v] = edges[id];
+        assert(0 <= u && u < n && 0 <= v && v < n);
+        graph[u].push_back(id);
+        graph[v].push_back(id);
+    }
+
+    vector<int> color(n, 0), parent(n, -1), parent_edge(n, -1);
+    struct Frame {
+        int vertex;
+        int next_edge;
+    };
+
+    for (int start = 0; start < n; ++start) {
+        if (color[start] != 0) continue;
+        vector<Frame> stack{{start, 0}};
+        color[start] = 1;
+        while (!stack.empty()) {
+            Frame& frame = stack.back();
+            const int vertex = frame.vertex;
+            if (frame.next_edge == static_cast<int>(graph[vertex].size())) {
+                color[vertex] = 2;
+                stack.pop_back();
+                continue;
+            }
+
+            const int edge_id = graph[vertex][frame.next_edge++];
+            if (edge_id == parent_edge[vertex]) continue;
+            const auto [u, v] = edges[edge_id];
+            const int to = u ^ v ^ vertex;
+            if (color[to] == 0) {
+                color[to] = 1;
+                parent[to] = vertex;
+                parent_edge[to] = edge_id;
+                stack.push_back({to, 0});
+            } else if (color[to] == 1) {
+                return fib_cycle_detail::restore_cycle(
+                    vertex, to, edge_id, parent, parent_edge);
+            }
+        }
+    }
+    return {};
+}
+// Injecting Graph/CycleDetection.hpp <- _fib/Graph/CycleDetection_graph__cycle_detection.test.cpp
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int n, m;
+    cin >> n >> m;
+    vector<pair<int, int>> edges(m);
+    for (auto& [from, to] : edges) cin >> from >> to;
+    const GraphCycle cycle = find_directed_cycle(n, edges);
+    if (!cycle) {
+        cout << -1 << '\n';
+        return 0;
+    }
+    cout << cycle.edges.size() << '\n';
+    for (const int edge : cycle.edges) cout << edge << '\n';
 }

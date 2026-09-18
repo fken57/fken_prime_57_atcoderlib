@@ -1,5 +1,7 @@
-#include "../../templete.hpp";
-#include "../extGCD.hpp";
+#pragma once
+
+#include "../ModArithmetic.hpp"
+#include "../extGCD.hpp"
 
 struct ChineseRemAns{
     bool isSolvable;

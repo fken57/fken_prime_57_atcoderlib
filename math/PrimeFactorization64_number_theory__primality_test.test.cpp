@@ -1,11 +1,6 @@
 // library-checker-judge test case
-// problem: tree/jump_on_tree
-// library: Tree/TreeDoubling.hpp
-
-//#define //_GLIBCXX_DEBUG
-//#define //_GLIBCXX_DEBUG
-//#define //_GLIBCXX_DEBUG
-//#define //_GLIBCXX_DEBUG
+// problem: number_theory/primality_test
+// library: math/PrimeFactorization64.hpp
 
 
 
@@ -1033,125 +1028,165 @@ inline constexpr array<ull, 20> pow10ll{
 #ifndef FIB_NO_MAIN
 
 #endif
-// Injecting ../template.hpp <- _fib/Tree/TreeDoubling.hpp
+// Injecting ../template.hpp <- _fib/math/PrimeFactorization64.hpp
 
-class TreeDoubling {
-public:
-    Graph G;
-    vector<vector<int>> parent;
-    int DS = 1;
-    int start = 0;
-    vector<int> depth;
-    ll N = 0;
+inline uint64_t multiply_mod_u64(uint64_t left,
+                                 uint64_t right,
+                                 uint64_t modulus) {
+    return static_cast<uint64_t>(
+        static_cast<__uint128_t>(left) * right % modulus);
+}
 
-    explicit TreeDoubling(const Graph& graph, int root = 0)
-        : G(graph), start(root), depth(graph.size(), -1), N(graph.size()) {
-        if (N == 0) return;
-        assert(0 <= root && root < N);
-        while ((1ULL << DS) <= static_cast<unsigned long long>(N)) ++DS;
-        parent.assign(N, vector<int>(DS, -1));
-        build();
+inline uint64_t power_mod_u64(uint64_t base,
+                              uint64_t exponent,
+                              uint64_t modulus) {
+    uint64_t result = 1 % modulus;
+    while (exponent != 0) {
+        if (exponent & 1) result = multiply_mod_u64(result, base, modulus);
+        base = multiply_mod_u64(base, base, modulus);
+        exponent >>= 1;
+    }
+    return result;
+}
+
+inline bool is_prime_u64(uint64_t value) {
+    if (value < 2) return false;
+    for (const uint64_t prime : {2ULL, 3ULL, 5ULL, 7ULL, 11ULL, 13ULL,
+                                 17ULL, 19ULL, 23ULL, 29ULL, 31ULL, 37ULL}) {
+        if (value % prime == 0) return value == prime;
     }
 
-    int kth_ancestor(int vertex, long long steps) const {
-        if (steps < 0) return -1;
-        for (int bit = 0; bit < DS && vertex != -1; ++bit) {
-            if ((steps >> bit) & 1LL) vertex = parent[vertex][bit];
-        }
-        if ((steps >> DS) != 0) return -1;
-        return vertex;
+    uint64_t odd = value - 1;
+    int shift = 0;
+    while ((odd & 1) == 0) {
+        odd >>= 1;
+        ++shift;
     }
 
-    int lca(int left, int right) const {
-        assert(0 <= left && left < N && 0 <= right && right < N);
-        if (depth[left] < depth[right]) swap(left, right);
-        left = kth_ancestor(left, depth[left] - depth[right]);
-        if (left == right) return left;
-        for (int bit = DS - 1; bit >= 0; --bit) {
-            if (parent[left][bit] != parent[right][bit]) {
-                left = parent[left][bit];
-                right = parent[right][bit];
+    for (const uint64_t base : {2ULL, 325ULL, 9375ULL, 28178ULL,
+                                450775ULL, 9780504ULL, 1795265022ULL}) {
+        if (base % value == 0) continue;
+        uint64_t current = power_mod_u64(base % value, odd, value);
+        if (current == 1 || current == value - 1) continue;
+        bool composite = true;
+        for (int i = 1; i < shift; ++i) {
+            current = multiply_mod_u64(current, current, value);
+            if (current == value - 1) {
+                composite = false;
+                break;
             }
         }
-        return parent[left][0];
+        if (composite) return false;
     }
+    return true;
+}
 
-    int distance(int left, int right) const {
-        const int ancestor = lca(left, right);
-        return depth[left] + depth[right] - 2 * depth[ancestor];
-    }
+namespace fib_factorization_detail {
 
-    int jump(int from, int to, long long steps) const {
-        const int ancestor = lca(from, to);
-        const long long up = depth[from] - depth[ancestor];
-        const long long down = depth[to] - depth[ancestor];
-        if (steps < 0 || steps > up + down) return -1;
-        if (steps <= up) return kth_ancestor(from, steps);
-        return kth_ancestor(to, up + down - steps);
-    }
+inline mt19937_64& engine() {
+    static mt19937_64 value(static_cast<uint64_t>(
+        chrono::steady_clock::now().time_since_epoch().count()));
+    return value;
+}
 
-    int LCA(int left, int right) const { return lca(left, right); }
-    int JumpOnTree(int from, int to, int steps) const {
-        return jump(from, to, steps);
-    }
+inline uint64_t pollard_rho(uint64_t value) {
+    if (value % 2 == 0) return 2;
+    if (value % 3 == 0) return 3;
 
-private:
-    void build() {
-        queue<int> queue;
-        queue.push(start);
-        depth[start] = 0;
-        while (!queue.empty()) {
-            const int vertex = queue.front();
-            queue.pop();
-            for (const ll next_value : G[vertex]) {
-                const int next = static_cast<int>(next_value);
-                if (next == parent[vertex][0]) continue;
-                if (depth[next] != -1) continue;
-                parent[next][0] = vertex;
-                depth[next] = depth[vertex] + 1;
-                queue.push(next);
+    while (true) {
+        uniform_int_distribution<uint64_t> distribution(1, value - 1);
+        uint64_t y = distribution(engine());
+        const uint64_t constant = distribution(engine());
+        constexpr uint64_t block_size = 128;
+        uint64_t factor = 1;
+        uint64_t length = 1;
+        uint64_t x = 0;
+        uint64_t saved_y = 0;
+
+        const auto next = [&](uint64_t current) {
+            return static_cast<uint64_t>(
+                (static_cast<__uint128_t>(
+                     multiply_mod_u64(current, current, value)) +
+                 constant) %
+                value);
+        };
+
+        while (factor == 1) {
+            x = y;
+            for (uint64_t i = 0; i < length; ++i) y = next(y);
+            for (uint64_t offset = 0;
+                 offset < length && factor == 1;
+                 offset += block_size) {
+                saved_y = y;
+                uint64_t product = 1;
+                const uint64_t count = min(block_size, length - offset);
+                for (uint64_t i = 0; i < count; ++i) {
+                    y = next(y);
+                    const uint64_t difference = x > y ? x - y : y - x;
+                    product = multiply_mod_u64(product, difference, value);
+                }
+                factor = gcd(product, value);
             }
+            length <<= 1;
         }
-        assert(find(depth.begin(), depth.end(), -1) == depth.end() &&
-               "TreeDoubling input must be connected");
 
-        for (int bit = 1; bit < DS; ++bit) {
-            for (int vertex = 0; vertex < N; ++vertex) {
-                const int middle = parent[vertex][bit - 1];
-                if (middle != -1) parent[vertex][bit] = parent[middle][bit - 1];
-            }
+        if (factor == value) {
+            do {
+                saved_y = next(saved_y);
+                const uint64_t difference =
+                    x > saved_y ? x - saved_y : saved_y - x;
+                factor = gcd(difference, value);
+            } while (factor == 1);
         }
-    }
-};
-// Injecting Tree/TreeDoubling.hpp <- _fib/Tree/TreeDoubling_tree__jump_on_tree.test.cpp
-
-void solve(){
-    ll N,Q;
-    cin >> N >> Q;
-    Graph G(N);
-    rep(i,0,N-1){
-        ll u,v;
-        cin >> u >> v;
-        G[u].push_back(v);
-        G[v].push_back(u);
-    }
-
-    TreeDoubling TD(G);
-
-    while(Q--){
-        int u,v,k;
-        cin >> u >> v >> k;
-
-        cout << TD.JumpOnTree(u,v,k) << '\n';
+        if (factor != value) return factor;
     }
 }
 
-int main(){
-    std::cin.tie(nullptr);
-    std::ios_base::sync_with_stdio(false);
-    ll T=1;
-    //cin >> T;
-    while(T--){
-        solve();
+inline void factor_recursively(uint64_t value, vector<uint64_t>& factors) {
+    if (value == 1) return;
+    if (is_prime_u64(value)) {
+        factors.push_back(value);
+        return;
+    }
+    const uint64_t divisor = pollard_rho(value);
+    factor_recursively(divisor, factors);
+    factor_recursively(value / divisor, factors);
+}
+
+}  // namespace fib_factorization_detail
+
+inline vector<uint64_t> factorize_u64(uint64_t value) {
+    assert(value >= 1 && "factorize_u64 requires a positive integer");
+    vector<uint64_t> factors;
+    fib_factorization_detail::factor_recursively(value, factors);
+    sort(factors.begin(), factors.end());
+    return factors;
+}
+
+inline vector<pair<uint64_t, int>> factorize_u64_with_exponents(
+    uint64_t value) {
+    const auto factors = factorize_u64(value);
+    vector<pair<uint64_t, int>> result;
+    for (const uint64_t factor : factors) {
+        if (result.empty() || result.back().first != factor) {
+            result.push_back({factor, 1});
+        } else {
+            ++result.back().second;
+        }
+    }
+    return result;
+}
+// Injecting math/PrimeFactorization64.hpp <- _fib/math/PrimeFactorization64_number_theory__primality_test.test.cpp
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int query_count;
+    cin >> query_count;
+    while (query_count--) {
+        uint64_t value;
+        cin >> value;
+        cout << (is_prime_u64(value) ? "Yes" : "No") << '\n';
     }
 }

@@ -1,5 +1,5 @@
 #pragma once
 
-#include "../../templete.hpp"
-
-ll segTree;
+// Backward-compatible entry point.
+#include "../Monoids.hpp"
+#include "../BinarySearch.hpp"

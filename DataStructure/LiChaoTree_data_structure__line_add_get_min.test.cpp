@@ -1,11 +1,6 @@
 // library-checker-judge test case
-// problem: tree/jump_on_tree
-// library: Tree/TreeDoubling.hpp
-
-//#define //_GLIBCXX_DEBUG
-//#define //_GLIBCXX_DEBUG
-//#define //_GLIBCXX_DEBUG
-//#define //_GLIBCXX_DEBUG
+// problem: data_structure/line_add_get_min
+// library: DataStructure/LiChaoTree.hpp
 
 
 
@@ -1033,125 +1028,156 @@ inline constexpr array<ull, 20> pow10ll{
 #ifndef FIB_NO_MAIN
 
 #endif
-// Injecting ../template.hpp <- _fib/Tree/TreeDoubling.hpp
+// Injecting ../template.hpp <- _fib/DataStructure/LiChaoTree.hpp
 
-class TreeDoubling {
+template <class T>
+class LiChaoTree {
 public:
-    Graph G;
-    vector<vector<int>> parent;
-    int DS = 1;
-    int start = 0;
-    vector<int> depth;
-    ll N = 0;
+    struct Line {
+        T slope = 0;
+        T intercept = std::numeric_limits<T>::max();
 
-    explicit TreeDoubling(const Graph& graph, int root = 0)
-        : G(graph), start(root), depth(graph.size(), -1), N(graph.size()) {
-        if (N == 0) return;
-        assert(0 <= root && root < N);
-        while ((1ULL << DS) <= static_cast<unsigned long long>(N)) ++DS;
-        parent.assign(N, vector<int>(DS, -1));
-        build();
-    }
-
-    int kth_ancestor(int vertex, long long steps) const {
-        if (steps < 0) return -1;
-        for (int bit = 0; bit < DS && vertex != -1; ++bit) {
-            if ((steps >> bit) & 1LL) vertex = parent[vertex][bit];
+        __int128 evaluate_wide(T x) const {
+            return static_cast<__int128>(slope) * x + intercept;
         }
-        if ((steps >> DS) != 0) return -1;
-        return vertex;
-    }
 
-    int lca(int left, int right) const {
-        assert(0 <= left && left < N && 0 <= right && right < N);
-        if (depth[left] < depth[right]) swap(left, right);
-        left = kth_ancestor(left, depth[left] - depth[right]);
-        if (left == right) return left;
-        for (int bit = DS - 1; bit >= 0; --bit) {
-            if (parent[left][bit] != parent[right][bit]) {
-                left = parent[left][bit];
-                right = parent[right][bit];
-            }
+        T operator()(T x) const {
+            return static_cast<T>(evaluate_wide(x));
         }
-        return parent[left][0];
+    };
+
+    LiChaoTree(T minimum_x, T maximum_x)
+        : minimum_x_(minimum_x), maximum_x_(maximum_x) {
+        assert(minimum_x_ <= maximum_x_);
     }
 
-    int distance(int left, int right) const {
-        const int ancestor = lca(left, right);
-        return depth[left] + depth[right] - 2 * depth[ancestor];
+    void add_line(T slope, T intercept) {
+        add_line(root_, minimum_x_, maximum_x_, {slope, intercept});
     }
 
-    int jump(int from, int to, long long steps) const {
-        const int ancestor = lca(from, to);
-        const long long up = depth[from] - depth[ancestor];
-        const long long down = depth[to] - depth[ancestor];
-        if (steps < 0 || steps > up + down) return -1;
-        if (steps <= up) return kth_ancestor(from, steps);
-        return kth_ancestor(to, up + down - steps);
+    void add_segment(T slope,
+                     T intercept,
+                     T segment_left,
+                     T segment_right) {
+        if (segment_right < minimum_x_ || maximum_x_ < segment_left) return;
+        segment_left = max(segment_left, minimum_x_);
+        segment_right = min(segment_right, maximum_x_);
+        add_segment(root_, minimum_x_, maximum_x_, segment_left, segment_right,
+                    {slope, intercept});
     }
 
-    int LCA(int left, int right) const { return lca(left, right); }
-    int JumpOnTree(int from, int to, int steps) const {
-        return jump(from, to, steps);
+    T query(T x) const {
+        assert(minimum_x_ <= x && x <= maximum_x_);
+        const __int128 answer = query(root_.get(), minimum_x_, maximum_x_, x);
+        if (answer >= wide_infinity()) return std::numeric_limits<T>::max();
+        return static_cast<T>(answer);
     }
 
 private:
-    void build() {
-        queue<int> queue;
-        queue.push(start);
-        depth[start] = 0;
-        while (!queue.empty()) {
-            const int vertex = queue.front();
-            queue.pop();
-            for (const ll next_value : G[vertex]) {
-                const int next = static_cast<int>(next_value);
-                if (next == parent[vertex][0]) continue;
-                if (depth[next] != -1) continue;
-                parent[next][0] = vertex;
-                depth[next] = depth[vertex] + 1;
-                queue.push(next);
-            }
-        }
-        assert(find(depth.begin(), depth.end(), -1) == depth.end() &&
-               "TreeDoubling input must be connected");
+    struct Node {
+        Line line;
+        bool has_line = false;
+        unique_ptr<Node> left;
+        unique_ptr<Node> right;
+    };
 
-        for (int bit = 1; bit < DS; ++bit) {
-            for (int vertex = 0; vertex < N; ++vertex) {
-                const int middle = parent[vertex][bit - 1];
-                if (middle != -1) parent[vertex][bit] = parent[middle][bit - 1];
-            }
+    static constexpr __int128 wide_infinity() {
+        return static_cast<__int128>(std::numeric_limits<T>::max());
+    }
+
+    static bool better(const Line& left, const Line& right, T x) {
+        return left.evaluate_wide(x) < right.evaluate_wide(x);
+    }
+
+    static T midpoint(T left, T right) {
+        return static_cast<T>(
+            static_cast<__int128>(left) +
+            (static_cast<__int128>(right) - left) / 2);
+    }
+
+    void add_line(unique_ptr<Node>& node, T left, T right, Line line) {
+        if (!node) node = make_unique<Node>();
+        if (!node->has_line) {
+            node->line = line;
+            node->has_line = true;
+            return;
+        }
+
+        const T middle = midpoint(left, right);
+        const bool left_better = better(line, node->line, left);
+        const bool middle_better = better(line, node->line, middle);
+        if (middle_better) swap(line, node->line);
+        if (left == right) return;
+
+        if (left_better != middle_better) {
+            add_line(node->left, left, middle, line);
+        } else {
+            add_line(node->right, middle + 1, right, line);
         }
     }
+
+    void add_segment(unique_ptr<Node>& node,
+                     T left,
+                     T right,
+                     T query_left,
+                     T query_right,
+                     const Line& line) {
+        if (query_right < left || right < query_left) return;
+        if (query_left <= left && right <= query_right) {
+            add_line(node, left, right, line);
+            return;
+        }
+        if (!node) node = make_unique<Node>();
+        const T middle = midpoint(left, right);
+        add_segment(node->left, left, middle, query_left, query_right, line);
+        add_segment(node->right, middle + 1, right, query_left, query_right,
+                    line);
+    }
+
+    __int128 query(const Node* node, T left, T right, T x) const {
+        if (node == nullptr) return wide_infinity();
+        __int128 result =
+            node->has_line ? node->line.evaluate_wide(x) : wide_infinity();
+        if (left == right) return result;
+        const T middle = midpoint(left, right);
+        if (x <= middle) {
+            result = min(result, query(node->left.get(), left, middle, x));
+        } else {
+            result = min(result,
+                         query(node->right.get(), middle + 1, right, x));
+        }
+        return result;
+    }
+
+    T minimum_x_;
+    T maximum_x_;
+    unique_ptr<Node> root_;
 };
-// Injecting Tree/TreeDoubling.hpp <- _fib/Tree/TreeDoubling_tree__jump_on_tree.test.cpp
+// Injecting DataStructure/LiChaoTree.hpp <- _fib/DataStructure/LiChaoTree_data_structure__line_add_get_min.test.cpp
 
-void solve(){
-    ll N,Q;
-    cin >> N >> Q;
-    Graph G(N);
-    rep(i,0,N-1){
-        ll u,v;
-        cin >> u >> v;
-        G[u].push_back(v);
-        G[v].push_back(u);
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int n, q;
+    cin >> n >> q;
+    LiChaoTree<ll> tree(-1000000000LL, 1000000000LL);
+    while (n--) {
+        ll slope, intercept;
+        cin >> slope >> intercept;
+        tree.add_line(slope, intercept);
     }
-
-    TreeDoubling TD(G);
-
-    while(Q--){
-        int u,v,k;
-        cin >> u >> v >> k;
-
-        cout << TD.JumpOnTree(u,v,k) << '\n';
-    }
-}
-
-int main(){
-    std::cin.tie(nullptr);
-    std::ios_base::sync_with_stdio(false);
-    ll T=1;
-    //cin >> T;
-    while(T--){
-        solve();
+    while (q--) {
+        int type;
+        cin >> type;
+        if (type == 0) {
+            ll slope, intercept;
+            cin >> slope >> intercept;
+            tree.add_line(slope, intercept);
+        } else {
+            ll x;
+            cin >> x;
+            cout << tree.query(x) << '\n';
+        }
     }
 }

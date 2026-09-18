@@ -1,48 +1,77 @@
-#include "DisjointUnionSet.hpp"
+#pragma once
 
-struct MSTData{
+#include "../template.hpp"
+
+template <class Cost>
+struct MSTEdge {
+    int from;
+    int to;
+    Cost cost;
+    int id = -1;
+};
+
+template <class Cost>
+struct KruskalResult {
+    Cost cost{};
+    vector<int> edge_ids;
+    int components = 0;
+
+    bool connected() const { return components <= 1; }
+};
+
+template <class Cost>
+KruskalResult<Cost> kruskal(int n, vector<MSTEdge<Cost>> edges) {
+    for (int index = 0; index < static_cast<int>(edges.size()); ++index) {
+        if (edges[index].id == -1) edges[index].id = index;
+    }
+    sort(edges.begin(), edges.end(), [](const auto& left, const auto& right) {
+        if (left.cost != right.cost) return left.cost < right.cost;
+        return left.id < right.id;
+    });
+
+    atcoder::dsu dsu(n);
+    KruskalResult<Cost> result;
+    result.components = n;
+    for (const auto& edge : edges) {
+        assert(0 <= edge.from && edge.from < n);
+        assert(0 <= edge.to && edge.to < n);
+        if (dsu.same(edge.from, edge.to)) continue;
+        dsu.merge(edge.from, edge.to);
+        result.cost += edge.cost;
+        result.edge_ids.push_back(edge.id);
+        --result.components;
+    }
+    return result;
+}
+
+struct MSTData {
     ll cost;
     WeightedGraph graph;
     vll index;
-}; 
-/*@param 連結な0index-ed辺リストに関して最小全域木を返す*/
-MSTData MinimumSpinningTree(ll N,vll V,vll U,vll W){
-    if(V.size()!=U.size()||U.size()!=W.size()){
-        assert("Invalid Input");
+    bool connected = false;
+};
+
+inline MSTData MinimumSpinningTree(ll n,
+                                   const vll& from,
+                                   const vll& to,
+                                   const vll& weight) {
+    assert(from.size() == to.size() && to.size() == weight.size());
+    vector<MSTEdge<ll>> edges;
+    edges.reserve(from.size());
+    for (int id = 0; id < static_cast<int>(from.size()); ++id) {
+        edges.push_back({static_cast<int>(from[id]), static_cast<int>(to[id]),
+                         weight[id], id});
     }
 
-    ll M=V.size();
-
-    DisjointUnionSet Tr(N);
-
-    vector<tuple<ll,ll,ll,ll>> Tup(M);;
-    rep(i,0,M) Tup[i]={W[i],V[i],U[i],i};
-
-    sort(Tup.begin(),Tup.end());
-
-    WeightedGraph G(N);
-
-    vll res;
-
-    ll mincost=0;
-
-    rep(i,0,M){
-        ll cost=get<0>(Tup[i]);
-        ll from=get<1>(Tup[i]);    
-        ll to=get<2>(Tup[i]);
-        ll ind=get<3>(Tup[i]);
-
-        if(Tr.Same(from,to)){
-            continue;
-        }
-
-        Tr.Merge(from,to);
-        mincost += cost;
-        G[from].push_back({to,cost});
-        G[to].push_back({from,cost});
-
-        res.push_back(ind);
+    const auto result = kruskal(static_cast<int>(n), edges);
+    WeightedGraph graph(n);
+    vll selected;
+    for (const int id : result.edge_ids) {
+        graph[from[id]].push_back(
+            {static_cast<int>(to[id]), weight[id], id});
+        graph[to[id]].push_back(
+            {static_cast<int>(from[id]), weight[id], id});
+        selected.push_back(id);
     }
-
-    return {mincost,G,res};
+    return {result.cost, graph, selected, result.connected()};
 }

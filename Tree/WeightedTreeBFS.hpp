@@ -1,20 +1,24 @@
-#include "../templete.hpp"
+#pragma once
 
-void WeightedTreeBFS(int start,const WeightedGraph &G,vll &dist){
-    queue<ll> q;
-    for(auto v:dist) v=inf;
-    dist[start]=0;
-    q.push(start);
+#include "../template.hpp"
 
-  
-    while(!q.empty()){
-        ll x=q.front();
-        q.pop();
-        for(auto v:G[x]){
-            if(dist[v.to]==inf){
-                dist[v.to]=dist[x]+v.weight;
-                q.push(v.to);
-            }
+inline void WeightedTreeBFS(int start,
+                            const WeightedGraph& graph,
+                            vll& dist) {
+    const int n = static_cast<int>(graph.size());
+    assert(0 <= start && start < n);
+    dist.assign(n, inf);
+    queue<int> queue;
+    dist[start] = 0;
+    queue.push(start);
+
+    while (!queue.empty()) {
+        const int vertex = queue.front();
+        queue.pop();
+        for (const auto& edge : graph[vertex]) {
+            if (dist[edge.to] != inf) continue;
+            dist[edge.to] = dist[vertex] + edge.weight;
+            queue.push(edge.to);
         }
     }
 }

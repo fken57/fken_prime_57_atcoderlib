@@ -1,130 +1,62 @@
-#include "../templete.hpp";
+#pragma once
 
-struct DisjointUnionSet{
-    //WIP
+#include "../template.hpp"
+
+class DisjointUnionSet {
+public:
     int dsuSize;
     int TotalConective;
 
-    struct Node{
-        int joinGroup;
-        int NodeSize;
-        int Nodeindex;
-        Node* to;
-        vector<Node*> from;
-        Node* leaderNode;
-    };
+    explicit DisjointUnionSet(ll n)
+        : dsuSize(checked_size(n)),
+          TotalConective(dsuSize),
+          dsu_(dsuSize) {}
 
-    vector<Node> DsuList;
-
-    DisjointUnionSet(ll N){
-        dsuSize=N;
-        DsuList.assign(N,{
-            0,
-            1,
-            0,
-            nullptr,
-            {},
-            nullptr
-        });
-
-        rep(i,0,N){
-            DsuList[i].NodeSize=1;
-            DsuList[i].joinGroup=i;
-            DsuList[i].Nodeindex=i;
-            DsuList[i].leaderNode = &DsuList[i];
+    void Merge(ll left, ll right) {
+        check_index(left);
+        check_index(right);
+        if (!dsu_.same(left, right)) {
+            dsu_.merge(left, right);
+            --TotalConective;
         }
     }
 
-    /*Merge O(logN)*/
-    void Merge(ll u,ll v){
-        if(u<0 || u>dsuSize-1 || v<0 || v>dsuSize-1){
-            assert("Invalid Index");
-        }
+    bool Same(ll left, ll right) {
+        check_index(left);
+        check_index(right);
+        return dsu_.same(left, right);
+    }
 
-        if(u==v) return;
+    int leader(ll vertex) {
+        check_index(vertex);
+        return dsu_.leader(vertex);
+    }
 
-        ll uindex=DsuList[u].joinGroup;
-        ll vindex=DsuList[v].joinGroup;
+    int size(ll vertex) {
+        check_index(vertex);
+        return dsu_.size(vertex);
+    }
 
-        if(uindex==vindex) return;
-
-        ll x=DsuList[u].leaderNode -> NodeSize;
-        ll y=DsuList[v].leaderNode -> NodeSize; 
-
-        if(x < y) swap(u,v);
-
-        //uがマージを受ける側、vがマージをする側
-
-        auto toNode = DsuList[u].leaderNode;
-        auto fromNode = DsuList[v].leaderNode;
-
-        fromNode -> to = toNode;
-        toNode -> from.push_back(fromNode);
-
-        ll nodeCount=0;
-
-        queue<Node*> q;
-        q.push(fromNode);
-
-        while(!q.empty()){
-            auto cur = q.front();q.pop();
-            nodeCount++;
-            cur ->joinGroup = toNode -> joinGroup;
-            cur ->leaderNode = toNode;
-
-            for(auto next:cur -> from){
-                q.push(next);
+    vector<int> ReturnTree(ll vertex) {
+        check_index(vertex);
+        const int root = dsu_.leader(vertex);
+        for (auto& group : dsu_.groups()) {
+            if (!group.empty() && dsu_.leader(group.front()) == root) {
+                return group;
             }
         }
-
-        toNode -> NodeSize += nodeCount;
+        return {};
     }
 
-    bool Same(ll u,ll v){
-        if(v<0 || v>dsuSize-1 || u<0 || u>dsuSize-1){
-            assert("Invalid Index");
-        }
-        if(u==v){
-            return true;
-        }
-        ll x=DsuList[v].joinGroup;
-        ll y=DsuList[u].joinGroup;
-
-        if(x==y){
-            return true;
-        }
-        else{
-            return false;
-        }
+private:
+    static int checked_size(ll size) {
+        assert(0 <= size && size <= numeric_limits<int>::max());
+        return static_cast<int>(size);
     }
 
-    int leader(ll u){
-        if(u < 0 || u > dsuSize-1){
-            assert("Invalid Index");
-        }
-        return DsuList[u].leaderNode -> Nodeindex;
+    void check_index(ll vertex) const {
+        assert(0 <= vertex && vertex < dsuSize && "Invalid DSU index");
     }
 
-    vector<int> ReturnTree(ll v){
-        auto nowNode= DsuList[v].leaderNode;
-
-        queue<Node*> q;
-        q.push(nowNode);
-
-        vector<int> cnt;
-
-        while(!q.empty()){
-            auto cur = q.front();q.pop();
-            int x=cur -> Nodeindex; 
-
-            cnt.push_back(x);
-
-
-            for(auto next:cur -> from){
-                q.push(next);
-            }
-        }
-        
-        return cnt;
-    }
+    atcoder::dsu dsu_;
 };

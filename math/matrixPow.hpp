@@ -1,3 +1,5 @@
+#pragma once
+
 #include "../templete.hpp"
 
 template<typename T>
@@ -18,8 +20,13 @@ struct MatrixPow{
     /*add_e 加法の単位元*/
     /*init_mat 初期行列*/
     /*op_mat 行列累乗するための行列*/
-    MatrixPow(F mul_op,F add_op,T mul_e,T add_e,vector<vector<T>> init_mat, vector<vector<T>> op_mat):
-        mul_operation(mul_op),add_operation(add_op),mul_e(mul_e),add_e(add_e),init_mat(init_mat),op_mat(op_mat){
+    MatrixPow(F mul_op,F add_op,T multiplication_identity,T addition_identity,
+              vector<vector<T>> initial_matrix,
+              vector<vector<T>> operation_matrix):
+        mul_operation(mul_op),add_operation(add_op),
+        mul_e(multiplication_identity),add_e(addition_identity),
+        op_mat(std::move(operation_matrix)),
+        init_mat(std::move(initial_matrix)){
         }
 
     vector<vector<T>> Matrix_add(vector<vector<T>> &a,vector<vector<T>> &b){
@@ -42,7 +49,6 @@ struct MatrixPow{
         vector<vector<T>> res=init_mat;
         vector<vector<T>> op_mat_copy=op_mat;
 
-        int sz=init_mat.size();
         while(n){
             if(n&1) res=Matrix_mul(res,op_mat_copy);
             op_mat_copy=Matrix_mul(op_mat_copy,op_mat_copy);
@@ -51,19 +57,3 @@ struct MatrixPow{
         return res;
     }
 };
-
-    /*@brief トロピカル代数の単位元*/
-    auto mul_op=[](ll a,ll b){return a+b;};
-    auto add_op=[](ll a,ll b){return min(a,b);};
-    ll mul_e=0;
-    ll add_e=inf;
-
-    MatrixPow<ll> mp(mul_op,add_op,mul_e,add_e,init,C);
-
-        /*@brief 一般代数の単位元*/
-        auto mul_op=[](ll a,ll b){return a*b;};
-        auto add_op=[](ll a,ll b){return a+b;};
-        ll mul_e=1;
-        ll add_e=0;
-    
-        MatrixPow<ll> mp(mul_op,add_op,mul_e,add_e,init,C);

@@ -1,11 +1,6 @@
 // library-checker-judge test case
-// problem: tree/jump_on_tree
-// library: Tree/TreeDoubling.hpp
-
-//#define //_GLIBCXX_DEBUG
-//#define //_GLIBCXX_DEBUG
-//#define //_GLIBCXX_DEBUG
-//#define //_GLIBCXX_DEBUG
+// problem: enumerative_combinatorics/binomial_coefficient
+// library: math/ArbitraryModCombination.hpp
 
 
 
@@ -1033,125 +1028,174 @@ inline constexpr array<ull, 20> pow10ll{
 #ifndef FIB_NO_MAIN
 
 #endif
-// Injecting ../template.hpp <- _fib/Tree/TreeDoubling.hpp
+// Injecting ../template.hpp <- _fib/math/ArbitraryModCombination.hpp
 
-class TreeDoubling {
+namespace fib_arbitrary_combination_detail {
+
+inline long long multiply_mod(long long left,
+                              long long right,
+                              int modulus) {
+    return static_cast<long long>(
+        static_cast<__int128>(left) * right % modulus);
+}
+
+inline long long power_mod(long long base,
+                           long long exponent,
+                           int modulus) {
+    long long result = 1 % modulus;
+    while (exponent > 0) {
+        if (exponent & 1) result = multiply_mod(result, base, modulus);
+        base = multiply_mod(base, base, modulus);
+        exponent >>= 1;
+    }
+    return result;
+}
+
+class PrimePowerCombination {
 public:
-    Graph G;
-    vector<vector<int>> parent;
-    int DS = 1;
-    int start = 0;
-    vector<int> depth;
-    ll N = 0;
-
-    explicit TreeDoubling(const Graph& graph, int root = 0)
-        : G(graph), start(root), depth(graph.size(), -1), N(graph.size()) {
-        if (N == 0) return;
-        assert(0 <= root && root < N);
-        while ((1ULL << DS) <= static_cast<unsigned long long>(N)) ++DS;
-        parent.assign(N, vector<int>(DS, -1));
-        build();
-    }
-
-    int kth_ancestor(int vertex, long long steps) const {
-        if (steps < 0) return -1;
-        for (int bit = 0; bit < DS && vertex != -1; ++bit) {
-            if ((steps >> bit) & 1LL) vertex = parent[vertex][bit];
+    PrimePowerCombination(int prime, int exponent)
+        : prime_(prime), exponent_(exponent), modulus_(1) {
+        assert(prime_ >= 2 && exponent_ >= 1);
+        for (int i = 0; i < exponent_; ++i) {
+            assert(1LL * modulus_ * prime_ <=
+                   numeric_limits<int>::max());
+            modulus_ *= prime_;
         }
-        if ((steps >> DS) != 0) return -1;
-        return vertex;
-    }
 
-    int lca(int left, int right) const {
-        assert(0 <= left && left < N && 0 <= right && right < N);
-        if (depth[left] < depth[right]) swap(left, right);
-        left = kth_ancestor(left, depth[left] - depth[right]);
-        if (left == right) return left;
-        for (int bit = DS - 1; bit >= 0; --bit) {
-            if (parent[left][bit] != parent[right][bit]) {
-                left = parent[left][bit];
-                right = parent[right][bit];
+        factorial_.resize(modulus_);
+        inverse_factorial_.resize(modulus_);
+        factorial_[0] = 1;
+        for (int value = 1; value < modulus_; ++value) {
+            factorial_[value] = factorial_[value - 1];
+            if (value % prime_ != 0) {
+                factorial_[value] = static_cast<int>(multiply_mod(
+                    factorial_[value], value, modulus_));
             }
         }
-        return parent[left][0];
+
+        inverse_factorial_[modulus_ - 1] = static_cast<int>(
+            atcoder::inv_mod(factorial_[modulus_ - 1], modulus_));
+        for (int value = modulus_ - 1; value >= 1; --value) {
+            inverse_factorial_[value - 1] = inverse_factorial_[value];
+            if (value % prime_ != 0) {
+                inverse_factorial_[value - 1] =
+                    static_cast<int>(multiply_mod(
+                        inverse_factorial_[value], value, modulus_));
+            }
+        }
+        period_product_ =
+            prime_ == 2 && exponent_ >= 3 ? 1 : modulus_ - 1;
     }
 
-    int distance(int left, int right) const {
-        const int ancestor = lca(left, right);
-        return depth[left] + depth[right] - 2 * depth[ancestor];
-    }
+    int modulus() const { return modulus_; }
 
-    int jump(int from, int to, long long steps) const {
-        const int ancestor = lca(from, to);
-        const long long up = depth[from] - depth[ancestor];
-        const long long down = depth[to] - depth[ancestor];
-        if (steps < 0 || steps > up + down) return -1;
-        if (steps <= up) return kth_ancestor(from, steps);
-        return kth_ancestor(to, up + down - steps);
-    }
+    long long C(long long n, long long k) const {
+        if (n < 0 || k < 0 || k > n) return 0;
+        long long remainder = n - k;
+        int prime_exponent = 0;
+        int period_exponent = 0;
+        int digit = 0;
+        long long result = 1;
 
-    int LCA(int left, int right) const { return lca(left, right); }
-    int JumpOnTree(int from, int to, int steps) const {
-        return jump(from, to, steps);
+        while (n > 0) {
+            result = multiply_mod(result, factorial_[n % modulus_],
+                                  modulus_);
+            result = multiply_mod(result, inverse_factorial_[k % modulus_],
+                                  modulus_);
+            result = multiply_mod(
+                result, inverse_factorial_[remainder % modulus_], modulus_);
+
+            n /= prime_;
+            k /= prime_;
+            remainder /= prime_;
+            const int carry = static_cast<int>(n - k - remainder);
+            prime_exponent += carry;
+            if (prime_exponent >= exponent_) return 0;
+            if (++digit >= exponent_) period_exponent += carry;
+        }
+
+        result = multiply_mod(
+            result,
+            power_mod(period_product_, period_exponent, modulus_),
+            modulus_);
+        result = multiply_mod(
+            result, power_mod(prime_, prime_exponent, modulus_), modulus_);
+        return result;
     }
 
 private:
-    void build() {
-        queue<int> queue;
-        queue.push(start);
-        depth[start] = 0;
-        while (!queue.empty()) {
-            const int vertex = queue.front();
-            queue.pop();
-            for (const ll next_value : G[vertex]) {
-                const int next = static_cast<int>(next_value);
-                if (next == parent[vertex][0]) continue;
-                if (depth[next] != -1) continue;
-                parent[next][0] = vertex;
-                depth[next] = depth[vertex] + 1;
-                queue.push(next);
-            }
-        }
-        assert(find(depth.begin(), depth.end(), -1) == depth.end() &&
-               "TreeDoubling input must be connected");
-
-        for (int bit = 1; bit < DS; ++bit) {
-            for (int vertex = 0; vertex < N; ++vertex) {
-                const int middle = parent[vertex][bit - 1];
-                if (middle != -1) parent[vertex][bit] = parent[middle][bit - 1];
-            }
-        }
-    }
+    int prime_;
+    int exponent_;
+    int modulus_;
+    int period_product_;
+    vector<int> factorial_;
+    vector<int> inverse_factorial_;
 };
-// Injecting Tree/TreeDoubling.hpp <- _fib/Tree/TreeDoubling_tree__jump_on_tree.test.cpp
 
-void solve(){
-    ll N,Q;
-    cin >> N >> Q;
-    Graph G(N);
-    rep(i,0,N-1){
-        ll u,v;
-        cin >> u >> v;
-        G[u].push_back(v);
-        G[v].push_back(u);
+}  // namespace fib_arbitrary_combination_detail
+
+// Binomial coefficient modulo any positive 32-bit modulus, including a
+// composite modulus. Construction takes O(modulus) total memory and time;
+// each query takes O(number of prime factors * log(n)).
+class ArbitraryModCombination {
+public:
+    explicit ArbitraryModCombination(int modulus) : modulus_(modulus) {
+        assert(modulus_ >= 1);
+        int remaining = modulus_;
+        for (int prime = 2; 1LL * prime * prime <= remaining; ++prime) {
+            if (remaining % prime != 0) continue;
+            int exponent = 0;
+            int prime_power = 1;
+            do {
+                remaining /= prime;
+                ++exponent;
+                prime_power *= prime;
+            } while (remaining % prime == 0);
+            component_moduli_.push_back(prime_power);
+            components_.emplace_back(prime, exponent);
+        }
+        if (remaining > 1) {
+            component_moduli_.push_back(remaining);
+            components_.emplace_back(remaining, 1);
+        }
     }
 
-    TreeDoubling TD(G);
+    int modulus() const { return modulus_; }
 
-    while(Q--){
-        int u,v,k;
-        cin >> u >> v >> k;
-
-        cout << TD.JumpOnTree(u,v,k) << '\n';
+    long long C(long long n, long long k) const {
+        if (n < 0 || k < 0 || k > n || modulus_ == 1) return 0;
+        vector<long long> remainders;
+        vector<long long> moduli;
+        remainders.reserve(components_.size());
+        moduli.reserve(components_.size());
+        for (int index = 0; index < static_cast<int>(components_.size());
+             ++index) {
+            remainders.push_back(components_[index].C(n, k));
+            moduli.push_back(component_moduli_[index]);
+        }
+        return atcoder::crt(remainders, moduli).first;
     }
-}
 
-int main(){
-    std::cin.tie(nullptr);
-    std::ios_base::sync_with_stdio(false);
-    ll T=1;
-    //cin >> T;
-    while(T--){
-        solve();
+private:
+    int modulus_;
+    vector<int> component_moduli_;
+    vector<fib_arbitrary_combination_detail::PrimePowerCombination>
+        components_;
+};
+// Injecting math/ArbitraryModCombination.hpp <- _fib/math/ArbitraryModCombination_enumerative_combinatorics__binomial_coefficient.test.cpp
+
+// Skipping already injected math/ArbitraryModCombination.hpp
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int query_count, modulus;
+    cin >> query_count >> modulus;
+    const ArbitraryModCombination combination(modulus);
+    while (query_count--) {
+        long long n, k;
+        cin >> n >> k;
+        cout << combination.C(n, k) << '\n';
     }
 }

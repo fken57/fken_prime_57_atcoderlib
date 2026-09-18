@@ -1,11 +1,6 @@
 // library-checker-judge test case
-// problem: tree/jump_on_tree
-// library: Tree/TreeDoubling.hpp
-
-//#define //_GLIBCXX_DEBUG
-//#define //_GLIBCXX_DEBUG
-//#define //_GLIBCXX_DEBUG
-//#define //_GLIBCXX_DEBUG
+// problem: graph/two_edge_connected_components
+// library: Graph/LowLink.hpp
 
 
 
@@ -1033,125 +1028,180 @@ inline constexpr array<ull, 20> pow10ll{
 #ifndef FIB_NO_MAIN
 
 #endif
-// Injecting ../template.hpp <- _fib/Tree/TreeDoubling.hpp
+// Injecting ../template.hpp <- _fib/Graph/LowLink.hpp
 
-class TreeDoubling {
+class LowLink {
 public:
-    Graph G;
-    vector<vector<int>> parent;
-    int DS = 1;
-    int start = 0;
-    vector<int> depth;
-    ll N = 0;
-
-    explicit TreeDoubling(const Graph& graph, int root = 0)
-        : G(graph), start(root), depth(graph.size(), -1), N(graph.size()) {
-        if (N == 0) return;
-        assert(0 <= root && root < N);
-        while ((1ULL << DS) <= static_cast<unsigned long long>(N)) ++DS;
-        parent.assign(N, vector<int>(DS, -1));
+    LowLink(int n, const vector<pair<int, int>>& edges)
+        : n_(n),
+          edges_(edges),
+          graph_(n),
+          order_(n, -1),
+          low_(n, -1),
+          parent_(n, -1),
+          parent_edge_(n, -1),
+          articulation_(n, false),
+          bridge_(edges.size(), false) {
+        for (int id = 0; id < static_cast<int>(edges_.size()); ++id) {
+            const auto [u, v] = edges_[id];
+            assert(0 <= u && u < n_ && 0 <= v && v < n_);
+            graph_[u].push_back({v, id});
+            graph_[v].push_back({u, id});
+        }
         build();
     }
 
-    int kth_ancestor(int vertex, long long steps) const {
-        if (steps < 0) return -1;
-        for (int bit = 0; bit < DS && vertex != -1; ++bit) {
-            if ((steps >> bit) & 1LL) vertex = parent[vertex][bit];
+    const vector<int>& order() const { return order_; }
+    const vector<int>& low() const { return low_; }
+    const vector<bool>& articulation_flags() const { return articulation_; }
+    const vector<bool>& bridge_flags() const { return bridge_; }
+    const vector<pair<int, int>>& edges() const { return edges_; }
+    const vector<vector<pair<int, int>>>& graph() const { return graph_; }
+
+    vector<int> articulation_points() const {
+        vector<int> result;
+        for (int vertex = 0; vertex < n_; ++vertex) {
+            if (articulation_[vertex]) result.push_back(vertex);
         }
-        if ((steps >> DS) != 0) return -1;
-        return vertex;
+        return result;
     }
 
-    int lca(int left, int right) const {
-        assert(0 <= left && left < N && 0 <= right && right < N);
-        if (depth[left] < depth[right]) swap(left, right);
-        left = kth_ancestor(left, depth[left] - depth[right]);
-        if (left == right) return left;
-        for (int bit = DS - 1; bit >= 0; --bit) {
-            if (parent[left][bit] != parent[right][bit]) {
-                left = parent[left][bit];
-                right = parent[right][bit];
-            }
+    vector<int> bridge_ids() const {
+        vector<int> result;
+        for (int id = 0; id < static_cast<int>(bridge_.size()); ++id) {
+            if (bridge_[id]) result.push_back(id);
         }
-        return parent[left][0];
-    }
-
-    int distance(int left, int right) const {
-        const int ancestor = lca(left, right);
-        return depth[left] + depth[right] - 2 * depth[ancestor];
-    }
-
-    int jump(int from, int to, long long steps) const {
-        const int ancestor = lca(from, to);
-        const long long up = depth[from] - depth[ancestor];
-        const long long down = depth[to] - depth[ancestor];
-        if (steps < 0 || steps > up + down) return -1;
-        if (steps <= up) return kth_ancestor(from, steps);
-        return kth_ancestor(to, up + down - steps);
-    }
-
-    int LCA(int left, int right) const { return lca(left, right); }
-    int JumpOnTree(int from, int to, int steps) const {
-        return jump(from, to, steps);
+        return result;
     }
 
 private:
     void build() {
-        queue<int> queue;
-        queue.push(start);
-        depth[start] = 0;
-        while (!queue.empty()) {
-            const int vertex = queue.front();
-            queue.pop();
-            for (const ll next_value : G[vertex]) {
-                const int next = static_cast<int>(next_value);
-                if (next == parent[vertex][0]) continue;
-                if (depth[next] != -1) continue;
-                parent[next][0] = vertex;
-                depth[next] = depth[vertex] + 1;
-                queue.push(next);
-            }
-        }
-        assert(find(depth.begin(), depth.end(), -1) == depth.end() &&
-               "TreeDoubling input must be connected");
+        struct Frame {
+            int vertex;
+            int next_edge;
+            int child_count;
+        };
 
-        for (int bit = 1; bit < DS; ++bit) {
-            for (int vertex = 0; vertex < N; ++vertex) {
-                const int middle = parent[vertex][bit - 1];
-                if (middle != -1) parent[vertex][bit] = parent[middle][bit - 1];
+        int timer = 0;
+        for (int start = 0; start < n_; ++start) {
+            if (order_[start] != -1) continue;
+            order_[start] = low_[start] = timer++;
+            vector<Frame> stack{{start, 0, 0}};
+
+            while (!stack.empty()) {
+                Frame& frame = stack.back();
+                const int vertex = frame.vertex;
+                if (frame.next_edge < static_cast<int>(graph_[vertex].size())) {
+                    const auto [to, edge_id] =
+                        graph_[vertex][frame.next_edge++];
+                    if (edge_id == parent_edge_[vertex]) continue;
+                    if (order_[to] == -1) {
+                        ++frame.child_count;
+                        parent_[to] = vertex;
+                        parent_edge_[to] = edge_id;
+                        order_[to] = low_[to] = timer++;
+                        stack.push_back({to, 0, 0});
+                    } else {
+                        low_[vertex] = min(low_[vertex], order_[to]);
+                    }
+                    continue;
+                }
+
+                const int child_count = frame.child_count;
+                stack.pop_back();
+                const int parent = parent_[vertex];
+                if (parent == -1) {
+                    articulation_[vertex] = child_count >= 2;
+                    continue;
+                }
+
+                low_[parent] = min(low_[parent], low_[vertex]);
+                if (order_[parent] < low_[vertex]) {
+                    bridge_[parent_edge_[vertex]] = true;
+                }
+                if (parent_[parent] != -1 &&
+                    order_[parent] <= low_[vertex]) {
+                    articulation_[parent] = true;
+                }
             }
         }
     }
+
+    int n_;
+    vector<pair<int, int>> edges_;
+    vector<vector<pair<int, int>>> graph_;
+    vector<int> order_;
+    vector<int> low_;
+    vector<int> parent_;
+    vector<int> parent_edge_;
+    vector<bool> articulation_;
+    vector<bool> bridge_;
 };
-// Injecting Tree/TreeDoubling.hpp <- _fib/Tree/TreeDoubling_tree__jump_on_tree.test.cpp
 
-void solve(){
-    ll N,Q;
-    cin >> N >> Q;
-    Graph G(N);
-    rep(i,0,N-1){
-        ll u,v;
-        cin >> u >> v;
-        G[u].push_back(v);
-        G[v].push_back(u);
+class TwoEdgeConnectedComponents {
+public:
+    explicit TwoEdgeConnectedComponents(const LowLink& lowlink)
+        : component_(lowlink.order().size(), -1) {
+        const auto& graph = lowlink.graph();
+        const auto& is_bridge = lowlink.bridge_flags();
+        const int n = static_cast<int>(graph.size());
+
+        for (int start = 0; start < n; ++start) {
+            if (component_[start] != -1) continue;
+            const int component_id = static_cast<int>(groups_.size());
+            groups_.push_back({});
+            vector<int> stack{start};
+            component_[start] = component_id;
+            while (!stack.empty()) {
+                const int vertex = stack.back();
+                stack.pop_back();
+                groups_.back().push_back(vertex);
+                for (const auto& [to, edge_id] : graph[vertex]) {
+                    if (is_bridge[edge_id] || component_[to] != -1) continue;
+                    component_[to] = component_id;
+                    stack.push_back(to);
+                }
+            }
+        }
+
+        tree_.assign(groups_.size(), {});
+        const auto& edges = lowlink.edges();
+        for (const int edge_id : lowlink.bridge_ids()) {
+            const auto [u, v] = edges[edge_id];
+            const int a = component_[u];
+            const int b = component_[v];
+            tree_[a].push_back(b);
+            tree_[b].push_back(a);
+        }
     }
 
-    TreeDoubling TD(G);
+    int operator[](int vertex) const { return component_[vertex]; }
+    int size() const { return static_cast<int>(groups_.size()); }
+    const vector<int>& component_ids() const { return component_; }
+    const vector<vector<int>>& groups() const { return groups_; }
+    const vector<vector<int>>& bridge_tree() const { return tree_; }
 
-    while(Q--){
-        int u,v,k;
-        cin >> u >> v >> k;
+private:
+    vector<int> component_;
+    vector<vector<int>> groups_;
+    vector<vector<int>> tree_;
+};
+// Injecting Graph/LowLink.hpp <- _fib/Graph/LowLink_graph__two_edge_connected_components.test.cpp
 
-        cout << TD.JumpOnTree(u,v,k) << '\n';
-    }
-}
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
 
-int main(){
-    std::cin.tie(nullptr);
-    std::ios_base::sync_with_stdio(false);
-    ll T=1;
-    //cin >> T;
-    while(T--){
-        solve();
+    int n, m;
+    cin >> n >> m;
+    vector<pair<int, int>> edges(m);
+    for (auto& [left, right] : edges) cin >> left >> right;
+    const LowLink lowlink(n, edges);
+    const TwoEdgeConnectedComponents components(lowlink);
+    cout << components.size() << '\n';
+    for (const auto& group : components.groups()) {
+        cout << group.size();
+        for (const int vertex : group) cout << ' ' << vertex;
+        cout << '\n';
     }
 }

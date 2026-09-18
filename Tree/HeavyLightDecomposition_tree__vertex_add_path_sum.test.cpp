@@ -1,11 +1,6 @@
 // library-checker-judge test case
-// problem: tree/jump_on_tree
-// library: Tree/TreeDoubling.hpp
-
-//#define //_GLIBCXX_DEBUG
-//#define //_GLIBCXX_DEBUG
-//#define //_GLIBCXX_DEBUG
-//#define //_GLIBCXX_DEBUG
+// problem: tree/vertex_add_path_sum
+// library: Tree/HeavyLightDecomposition.hpp
 
 
 
@@ -1033,125 +1028,204 @@ inline constexpr array<ull, 20> pow10ll{
 #ifndef FIB_NO_MAIN
 
 #endif
-// Injecting ../template.hpp <- _fib/Tree/TreeDoubling.hpp
+// Injecting ../template.hpp <- _fib/Tree/HeavyLightDecomposition.hpp
 
-class TreeDoubling {
+struct HeavyLightSegment {
+    int left;
+    int right;
+    bool reversed;
+};
+
+class HeavyLightDecomposition {
 public:
-    Graph G;
-    vector<vector<int>> parent;
-    int DS = 1;
-    int start = 0;
-    vector<int> depth;
-    ll N = 0;
+    explicit HeavyLightDecomposition(const Graph& graph, int root = 0)
+        : n_(static_cast<int>(graph.size())),
+          parent_(n_, -1),
+          depth_(n_, 0),
+          subtree_size_(n_, 1),
+          heavy_child_(n_, -1),
+          head_(n_, -1),
+          position_(n_, -1),
+          vertex_at_(n_, -1) {
+        if (n_ == 0) return;
+        assert(0 <= root && root < n_);
 
-    explicit TreeDoubling(const Graph& graph, int root = 0)
-        : G(graph), start(root), depth(graph.size(), -1), N(graph.size()) {
-        if (N == 0) return;
-        assert(0 <= root && root < N);
-        while ((1ULL << DS) <= static_cast<unsigned long long>(N)) ++DS;
-        parent.assign(N, vector<int>(DS, -1));
-        build();
+        vector<int> order;
+        order.reserve(n_);
+        vector<int> stack{root};
+        parent_[root] = root;
+        while (!stack.empty()) {
+            const int vertex = stack.back();
+            stack.pop_back();
+            order.push_back(vertex);
+            for (const ll next_value : graph[vertex]) {
+                const int next = static_cast<int>(next_value);
+                if (next == parent_[vertex]) continue;
+                assert(parent_[next] == -1 && "HLD input must be a tree");
+                parent_[next] = vertex;
+                depth_[next] = depth_[vertex] + 1;
+                stack.push_back(next);
+            }
+        }
+        assert(static_cast<int>(order.size()) == n_ &&
+               "HLD input must be connected");
+
+        for (auto iterator = order.rbegin(); iterator != order.rend(); ++iterator) {
+            const int vertex = *iterator;
+            int largest_size = 0;
+            for (const ll next_value : graph[vertex]) {
+                const int next = static_cast<int>(next_value);
+                if (parent_[next] != vertex) continue;
+                subtree_size_[vertex] += subtree_size_[next];
+                if (subtree_size_[next] > largest_size) {
+                    largest_size = subtree_size_[next];
+                    heavy_child_[vertex] = next;
+                }
+            }
+        }
+
+        int timer = 0;
+        vector<pair<int, int>> pending{{root, root}};
+        while (!pending.empty()) {
+            const auto [chain_start, chain_head] = pending.back();
+            pending.pop_back();
+            for (int vertex = chain_start; vertex != -1;
+                 vertex = heavy_child_[vertex]) {
+                head_[vertex] = chain_head;
+                position_[vertex] = timer;
+                vertex_at_[timer++] = vertex;
+
+                vector<int> light_children;
+                for (const ll next_value : graph[vertex]) {
+                    const int next = static_cast<int>(next_value);
+                    if (parent_[next] == vertex && next != heavy_child_[vertex]) {
+                        light_children.push_back(next);
+                    }
+                }
+                for (auto iterator = light_children.rbegin();
+                     iterator != light_children.rend(); ++iterator) {
+                    pending.push_back({*iterator, *iterator});
+                }
+            }
+        }
     }
 
-    int kth_ancestor(int vertex, long long steps) const {
-        if (steps < 0) return -1;
-        for (int bit = 0; bit < DS && vertex != -1; ++bit) {
-            if ((steps >> bit) & 1LL) vertex = parent[vertex][bit];
-        }
-        if ((steps >> DS) != 0) return -1;
-        return vertex;
+    int size() const { return n_; }
+    int parent(int vertex) const { return parent_[vertex]; }
+    int depth(int vertex) const { return depth_[vertex]; }
+    int position(int vertex) const { return position_[vertex]; }
+    int vertex_at(int position) const { return vertex_at_[position]; }
+
+    pair<int, int> subtree(int vertex, bool edge_mode = false) const {
+        return {position_[vertex] + static_cast<int>(edge_mode),
+                position_[vertex] + subtree_size_[vertex]};
     }
 
     int lca(int left, int right) const {
-        assert(0 <= left && left < N && 0 <= right && right < N);
-        if (depth[left] < depth[right]) swap(left, right);
-        left = kth_ancestor(left, depth[left] - depth[right]);
-        if (left == right) return left;
-        for (int bit = DS - 1; bit >= 0; --bit) {
-            if (parent[left][bit] != parent[right][bit]) {
-                left = parent[left][bit];
-                right = parent[right][bit];
+        while (head_[left] != head_[right]) {
+            if (depth_[head_[left]] > depth_[head_[right]]) {
+                left = parent_[head_[left]];
+            } else {
+                right = parent_[head_[right]];
             }
         }
-        return parent[left][0];
+        return depth_[left] < depth_[right] ? left : right;
     }
 
     int distance(int left, int right) const {
         const int ancestor = lca(left, right);
-        return depth[left] + depth[right] - 2 * depth[ancestor];
+        return depth_[left] + depth_[right] - 2 * depth_[ancestor];
     }
 
-    int jump(int from, int to, long long steps) const {
-        const int ancestor = lca(from, to);
-        const long long up = depth[from] - depth[ancestor];
-        const long long down = depth[to] - depth[ancestor];
-        if (steps < 0 || steps > up + down) return -1;
-        if (steps <= up) return kth_ancestor(from, steps);
-        return kth_ancestor(to, up + down - steps);
+    vector<HeavyLightSegment> path_segments(int from,
+                                            int to,
+                                            bool edge_mode = false) const {
+        vector<HeavyLightSegment> front;
+        vector<HeavyLightSegment> back;
+        while (head_[from] != head_[to]) {
+            if (depth_[head_[from]] >= depth_[head_[to]]) {
+                front.push_back(
+                    {position_[head_[from]], position_[from] + 1, true});
+                from = parent_[head_[from]];
+            } else {
+                back.push_back(
+                    {position_[head_[to]], position_[to] + 1, false});
+                to = parent_[head_[to]];
+            }
+        }
+
+        if (depth_[from] >= depth_[to]) {
+            const int left = position_[to] + static_cast<int>(edge_mode);
+            if (left < position_[from] + 1) {
+                front.push_back({left, position_[from] + 1, true});
+            }
+        } else {
+            const int left = position_[from] + static_cast<int>(edge_mode);
+            if (left < position_[to] + 1) {
+                back.push_back({left, position_[to] + 1, false});
+            }
+        }
+
+        reverse(back.begin(), back.end());
+        front.insert(front.end(), back.begin(), back.end());
+        return front;
     }
 
-    int LCA(int left, int right) const { return lca(left, right); }
-    int JumpOnTree(int from, int to, int steps) const {
-        return jump(from, to, steps);
+    template <class Function>
+    void for_each_path(int from,
+                       int to,
+                       Function function,
+                       bool edge_mode = false) const {
+        for (const auto& segment : path_segments(from, to, edge_mode)) {
+            function(segment.left, segment.right);
+        }
     }
 
 private:
-    void build() {
-        queue<int> queue;
-        queue.push(start);
-        depth[start] = 0;
-        while (!queue.empty()) {
-            const int vertex = queue.front();
-            queue.pop();
-            for (const ll next_value : G[vertex]) {
-                const int next = static_cast<int>(next_value);
-                if (next == parent[vertex][0]) continue;
-                if (depth[next] != -1) continue;
-                parent[next][0] = vertex;
-                depth[next] = depth[vertex] + 1;
-                queue.push(next);
-            }
-        }
-        assert(find(depth.begin(), depth.end(), -1) == depth.end() &&
-               "TreeDoubling input must be connected");
-
-        for (int bit = 1; bit < DS; ++bit) {
-            for (int vertex = 0; vertex < N; ++vertex) {
-                const int middle = parent[vertex][bit - 1];
-                if (middle != -1) parent[vertex][bit] = parent[middle][bit - 1];
-            }
-        }
-    }
+    int n_;
+    vector<int> parent_;
+    vector<int> depth_;
+    vector<int> subtree_size_;
+    vector<int> heavy_child_;
+    vector<int> head_;
+    vector<int> position_;
+    vector<int> vertex_at_;
 };
-// Injecting Tree/TreeDoubling.hpp <- _fib/Tree/TreeDoubling_tree__jump_on_tree.test.cpp
+// Injecting Tree/HeavyLightDecomposition.hpp <- _fib/Tree/HeavyLightDecomposition_tree__vertex_add_path_sum.test.cpp
 
-void solve(){
-    ll N,Q;
-    cin >> N >> Q;
-    Graph G(N);
-    rep(i,0,N-1){
-        ll u,v;
-        cin >> u >> v;
-        G[u].push_back(v);
-        G[v].push_back(u);
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int n, q;
+    cin >> n >> q;
+    vector<ll> values(n);
+    for (ll& value : values) cin >> value;
+    Graph graph(n);
+    for (int i = 1; i < n; ++i) {
+        int left, right;
+        cin >> left >> right;
+        graph[left].push_back(right);
+        graph[right].push_back(left);
     }
-
-    TreeDoubling TD(G);
-
-    while(Q--){
-        int u,v,k;
-        cin >> u >> v >> k;
-
-        cout << TD.JumpOnTree(u,v,k) << '\n';
+    const HeavyLightDecomposition hld(graph);
+    atcoder::fenwick_tree<ll> sum(n);
+    for (int vertex = 0; vertex < n; ++vertex) {
+        sum.add(hld.position(vertex), values[vertex]);
     }
-}
-
-int main(){
-    std::cin.tie(nullptr);
-    std::ios_base::sync_with_stdio(false);
-    ll T=1;
-    //cin >> T;
-    while(T--){
-        solve();
+    while (q--) {
+        int type, left;
+        ll right;
+        cin >> type >> left >> right;
+        if (type == 0) {
+            sum.add(hld.position(left), right);
+        } else {
+            ll answer = 0;
+            hld.for_each_path(left, static_cast<int>(right),
+                              [&](int begin, int end) {
+                                  answer += sum.sum(begin, end);
+                              });
+            cout << answer << '\n';
+        }
     }
 }

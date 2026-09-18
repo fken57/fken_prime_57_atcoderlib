@@ -1,8 +1,10 @@
-#include "../templete.hpp"
+#pragma once
+
+#include "../template.hpp"
 
 /*@param ax+by=gcd(x,y)を求める*/
 /*@result gcd(x,y)*/
-ll extGCD(ll a,ll b,ll &x,ll &y){
+inline ll extGCD(ll a,ll b,ll &x,ll &y){
     ll d=a;
 
     if(b != 0){

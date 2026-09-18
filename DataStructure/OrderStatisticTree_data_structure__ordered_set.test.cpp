@@ -1,11 +1,6 @@
 // library-checker-judge test case
-// problem: tree/jump_on_tree
-// library: Tree/TreeDoubling.hpp
-
-//#define //_GLIBCXX_DEBUG
-//#define //_GLIBCXX_DEBUG
-//#define //_GLIBCXX_DEBUG
-//#define //_GLIBCXX_DEBUG
+// problem: data_structure/ordered_set
+// library: DataStructure/OrderStatisticTree.hpp
 
 
 
@@ -1033,125 +1028,63 @@ inline constexpr array<ull, 20> pow10ll{
 #ifndef FIB_NO_MAIN
 
 #endif
-// Injecting ../template.hpp <- _fib/Tree/TreeDoubling.hpp
+// Injecting ../template.hpp <- _fib/DataStructure/OrderStatisticTree.hpp
 
-class TreeDoubling {
-public:
-    Graph G;
-    vector<vector<int>> parent;
-    int DS = 1;
-    int start = 0;
-    vector<int> depth;
-    ll N = 0;
+#include <ext/pb_ds/assoc_container.hpp>
+#include <ext/pb_ds/tree_policy.hpp>
 
-    explicit TreeDoubling(const Graph& graph, int root = 0)
-        : G(graph), start(root), depth(graph.size(), -1), N(graph.size()) {
-        if (N == 0) return;
-        assert(0 <= root && root < N);
-        while ((1ULL << DS) <= static_cast<unsigned long long>(N)) ++DS;
-        parent.assign(N, vector<int>(DS, -1));
-        build();
+// GNU PBDS-based optional containers. Include this header only when indexed
+// set/map operations are needed.
+template <class Key, class Compare = std::less<Key>>
+using OrderedSet = __gnu_pbds::tree<
+    Key,
+    __gnu_pbds::null_type,
+    Compare,
+    __gnu_pbds::rb_tree_tag,
+    __gnu_pbds::tree_order_statistics_node_update>;
+
+template <class Key, class Mapped, class Compare = std::less<Key>>
+using OrderedMap = __gnu_pbds::tree<
+    Key,
+    Mapped,
+    Compare,
+    __gnu_pbds::rb_tree_tag,
+    __gnu_pbds::tree_order_statistics_node_update>;
+// Injecting DataStructure/OrderStatisticTree.hpp <- _fib/DataStructure/OrderStatisticTree_data_structure__ordered_set.test.cpp
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int n, q;
+    cin >> n >> q;
+    OrderedSet<ll> values;
+    while (n--) {
+        ll value;
+        cin >> value;
+        values.insert(value);
     }
-
-    int kth_ancestor(int vertex, long long steps) const {
-        if (steps < 0) return -1;
-        for (int bit = 0; bit < DS && vertex != -1; ++bit) {
-            if ((steps >> bit) & 1LL) vertex = parent[vertex][bit];
+    while (q--) {
+        int type;
+        ll value;
+        cin >> type >> value;
+        if (type == 0) {
+            values.insert(value);
+        } else if (type == 1) {
+            values.erase(value);
+        } else if (type == 2) {
+            cout << (value <= static_cast<ll>(values.size())
+                         ? *values.find_by_order(value - 1)
+                         : -1)
+                 << '\n';
+        } else if (type == 3) {
+            cout << values.order_of_key(value + 1) << '\n';
+        } else if (type == 4) {
+            const auto iterator = values.upper_bound(value);
+            cout << (iterator == values.begin() ? -1 : *prev(iterator)) << '\n';
+        } else {
+            const auto iterator = values.lower_bound(value);
+            cout << (iterator == values.end() ? -1 : *iterator) << '\n';
         }
-        if ((steps >> DS) != 0) return -1;
-        return vertex;
-    }
-
-    int lca(int left, int right) const {
-        assert(0 <= left && left < N && 0 <= right && right < N);
-        if (depth[left] < depth[right]) swap(left, right);
-        left = kth_ancestor(left, depth[left] - depth[right]);
-        if (left == right) return left;
-        for (int bit = DS - 1; bit >= 0; --bit) {
-            if (parent[left][bit] != parent[right][bit]) {
-                left = parent[left][bit];
-                right = parent[right][bit];
-            }
-        }
-        return parent[left][0];
-    }
-
-    int distance(int left, int right) const {
-        const int ancestor = lca(left, right);
-        return depth[left] + depth[right] - 2 * depth[ancestor];
-    }
-
-    int jump(int from, int to, long long steps) const {
-        const int ancestor = lca(from, to);
-        const long long up = depth[from] - depth[ancestor];
-        const long long down = depth[to] - depth[ancestor];
-        if (steps < 0 || steps > up + down) return -1;
-        if (steps <= up) return kth_ancestor(from, steps);
-        return kth_ancestor(to, up + down - steps);
-    }
-
-    int LCA(int left, int right) const { return lca(left, right); }
-    int JumpOnTree(int from, int to, int steps) const {
-        return jump(from, to, steps);
-    }
-
-private:
-    void build() {
-        queue<int> queue;
-        queue.push(start);
-        depth[start] = 0;
-        while (!queue.empty()) {
-            const int vertex = queue.front();
-            queue.pop();
-            for (const ll next_value : G[vertex]) {
-                const int next = static_cast<int>(next_value);
-                if (next == parent[vertex][0]) continue;
-                if (depth[next] != -1) continue;
-                parent[next][0] = vertex;
-                depth[next] = depth[vertex] + 1;
-                queue.push(next);
-            }
-        }
-        assert(find(depth.begin(), depth.end(), -1) == depth.end() &&
-               "TreeDoubling input must be connected");
-
-        for (int bit = 1; bit < DS; ++bit) {
-            for (int vertex = 0; vertex < N; ++vertex) {
-                const int middle = parent[vertex][bit - 1];
-                if (middle != -1) parent[vertex][bit] = parent[middle][bit - 1];
-            }
-        }
-    }
-};
-// Injecting Tree/TreeDoubling.hpp <- _fib/Tree/TreeDoubling_tree__jump_on_tree.test.cpp
-
-void solve(){
-    ll N,Q;
-    cin >> N >> Q;
-    Graph G(N);
-    rep(i,0,N-1){
-        ll u,v;
-        cin >> u >> v;
-        G[u].push_back(v);
-        G[v].push_back(u);
-    }
-
-    TreeDoubling TD(G);
-
-    while(Q--){
-        int u,v,k;
-        cin >> u >> v >> k;
-
-        cout << TD.JumpOnTree(u,v,k) << '\n';
-    }
-}
-
-int main(){
-    std::cin.tie(nullptr);
-    std::ios_base::sync_with_stdio(false);
-    ll T=1;
-    //cin >> T;
-    while(T--){
-        solve();
     }
 }

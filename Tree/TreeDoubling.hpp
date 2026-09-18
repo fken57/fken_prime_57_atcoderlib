@@ -1,117 +1,92 @@
-#include "../templete.hpp";
+#pragma once
 
-struct TreeDoubling{
+#include "../template.hpp"
 
+class TreeDoubling {
+public:
     Graph G;
     vector<vector<int>> parent;
-    int DS=20;
-    int start=0;
-
+    int DS = 1;
+    int start = 0;
     vector<int> depth;
+    ll N = 0;
 
-    ll N;
-
-    /*@param TreeDoublingのコンストラクタ*/
-    TreeDoubling(const Graph &g,int s=0){
-        G=g;
-        start=s;
-
-        N=G.size();
-
-        parent.assign(N, vector<int>(DS,-1));
-
-        depth.assign(N,-1);
-
-        if(G.size()>(1LL<<(DS-1))){
-            assert(false && "Graph size exceeds res limit");
-        }
-
-        ExecuteDoubling();
+    explicit TreeDoubling(const Graph& graph, int root = 0)
+        : G(graph), start(root), depth(graph.size(), -1), N(graph.size()) {
+        if (N == 0) return;
+        assert(0 <= root && root < N);
+        while ((1ULL << DS) <= static_cast<unsigned long long>(N)) ++DS;
+        parent.assign(N, vector<int>(DS, -1));
+        build();
     }
 
-    /*@param ダブリングを実行する。計算量O(N log N)*/
-    void ExecuteDoubling(){
-        BFS(G,start);
+    int kth_ancestor(int vertex, long long steps) const {
+        if (steps < 0) return -1;
+        for (int bit = 0; bit < DS && vertex != -1; ++bit) {
+            if ((steps >> bit) & 1LL) vertex = parent[vertex][bit];
+        }
+        if ((steps >> DS) != 0) return -1;
+        return vertex;
+    }
 
-        rep(j,1,DS){
-            rep(i,0,N){
-                ll x=parent[i][j-1];
-                if(x==-1) continue;
-                ll y=parent[x][j-1];
+    int lca(int left, int right) const {
+        assert(0 <= left && left < N && 0 <= right && right < N);
+        if (depth[left] < depth[right]) swap(left, right);
+        left = kth_ancestor(left, depth[left] - depth[right]);
+        if (left == right) return left;
+        for (int bit = DS - 1; bit >= 0; --bit) {
+            if (parent[left][bit] != parent[right][bit]) {
+                left = parent[left][bit];
+                right = parent[right][bit];
+            }
+        }
+        return parent[left][0];
+    }
 
-                parent[i][j]=y;
+    int distance(int left, int right) const {
+        const int ancestor = lca(left, right);
+        return depth[left] + depth[right] - 2 * depth[ancestor];
+    }
+
+    int jump(int from, int to, long long steps) const {
+        const int ancestor = lca(from, to);
+        const long long up = depth[from] - depth[ancestor];
+        const long long down = depth[to] - depth[ancestor];
+        if (steps < 0 || steps > up + down) return -1;
+        if (steps <= up) return kth_ancestor(from, steps);
+        return kth_ancestor(to, up + down - steps);
+    }
+
+    int LCA(int left, int right) const { return lca(left, right); }
+    int JumpOnTree(int from, int to, int steps) const {
+        return jump(from, to, steps);
+    }
+
+private:
+    void build() {
+        queue<int> queue;
+        queue.push(start);
+        depth[start] = 0;
+        while (!queue.empty()) {
+            const int vertex = queue.front();
+            queue.pop();
+            for (const ll next_value : G[vertex]) {
+                const int next = static_cast<int>(next_value);
+                if (next == parent[vertex][0]) continue;
+                if (depth[next] != -1) continue;
+                parent[next][0] = vertex;
+                depth[next] = depth[vertex] + 1;
+                queue.push(next);
+            }
+        }
+        assert(find(depth.begin(), depth.end(), -1) == depth.end() &&
+               "TreeDoubling input must be connected");
+
+        for (int bit = 1; bit < DS; ++bit) {
+            for (int vertex = 0; vertex < N; ++vertex) {
+                const int middle = parent[vertex][bit - 1];
+                if (middle != -1) parent[vertex][bit] = parent[middle][bit - 1];
             }
         }
     }
-
-    /*@param 帰りがけ順列挙を行う*/
-    void BFS(const Graph &g,ll start=0){
-        queue<int> q;
-        q.push(start);
-        depth[start]=0;
-
-        while(!q.empty()){
-            ll x=q.front();q.pop();
-            for(auto v:g[x]){
-                if(depth[v]!=-1) continue;
-                parent[v][0]=x;
-                depth[v]=depth[x]+1;
-                q.push(v);
-            }
-        }
-    }
-
-    /*@param depth v > uとして*/
-    int LCA(int v,int u){
-        if(depth[v]<depth[u]) swap(v,u);
-
-        for(int i=0;i<DS;i++){
-            if((depth[v]-depth[u])>>i & 1){
-                v=parent[v][i];
-            }
-        }
-
-        if(u==v) return v;
-
-        for(int i=DS-1;i>=0;i--){
-            if(parent[v][i] != parent[u][i]){
-                v=parent[v][i];
-                u=parent[u][i];
-            }
-        }
-
-        return parent[v][0];
-    }
-
-    /*u->vのk個先を求めるアルゴリズム*/
-    int JumpOnTree(int u,int v,int k){
-        int p=LCA(u,v);
-
-        int udist=depth[u]-depth[p];
-        int vdist=depth[v]-depth[p];
-
-        if(udist+vdist<k){
-            return -1;
-        }
-
-        int res;
-
-        if(k <= udist){
-            res=u;
-            for(int i=0;i<DS;i++){
-                if(k >> i & 1) res=parent[res][i];
-            }
-
-            return res;
-        }
-        else{
-            res = v;
-            for(int i=0;i<DS;i++){
-                if((vdist+udist-k) >> i & 1) res=parent[res][i];
-            }
-
-            return res;
-        }
-    }
-
 };
