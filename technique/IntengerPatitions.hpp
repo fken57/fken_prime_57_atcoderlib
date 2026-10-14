@@ -1,4 +1,4 @@
-#include "../templete.hpp"
+#include "../common.hpp"
 //分割数の列挙(N=50くらいまでOK)
 vector<vector<int>> intPartition;
 

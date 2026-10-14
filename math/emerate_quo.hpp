@@ -1,4 +1,4 @@
-#include "../templete.hpp"
+#include "../common.hpp"
 
 
 /*@param 商列挙lz形式で<要素、個数>を昇順で返します*/

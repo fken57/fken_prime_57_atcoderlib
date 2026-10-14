@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../template.hpp"
+#include "../common.hpp"
 
 class TreeDoubling {
 public:
@@ -70,8 +70,7 @@ private:
         while (!queue.empty()) {
             const int vertex = queue.front();
             queue.pop();
-            for (const ll next_value : G[vertex]) {
-                const int next = static_cast<int>(next_value);
+            for (const int next : G[vertex]) {
                 if (next == parent[vertex][0]) continue;
                 if (depth[next] != -1) continue;
                 parent[next][0] = vertex;

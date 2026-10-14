@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../template.hpp"
+#include "../common.hpp"
 
 // Additive potentialized DSU.
 // merge(a, b, difference) adds potential(b) - potential(a) = difference.

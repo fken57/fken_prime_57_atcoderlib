@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../template.hpp"
+#include "../common.hpp"
 
 class DisjointUnionSet {
 public:

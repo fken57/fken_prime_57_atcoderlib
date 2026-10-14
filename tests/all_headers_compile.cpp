@@ -32,6 +32,7 @@
 #include "../math/matrixMult.hpp"
 #include "../math/matrixPow.hpp"
 #include "../segtree/BinarySearch.hpp"
+#include "../segtree/BracketSequence.hpp"
 #include "../segtree/Monoids.hpp"
 #include "../technique/BaseConverter.hpp"
 #include "../technique/Compress.hpp"

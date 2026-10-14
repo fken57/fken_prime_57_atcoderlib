@@ -1,4 +1,4 @@
-#include "../templete.hpp"
+#include "../common.hpp"
 
  
 string base_convert(const std::string& x, const int& from, const int& to)

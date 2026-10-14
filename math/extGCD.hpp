@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../template.hpp"
+#include "../common.hpp"
 
 /*@param ax+by=gcd(x,y)を求める*/
 /*@result gcd(x,y)*/

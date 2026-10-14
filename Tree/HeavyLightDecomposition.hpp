@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../template.hpp"
+#include "../common.hpp"
 
 struct HeavyLightSegment {
     int left;
@@ -30,8 +30,7 @@ public:
             const int vertex = stack.back();
             stack.pop_back();
             order.push_back(vertex);
-            for (const ll next_value : graph[vertex]) {
-                const int next = static_cast<int>(next_value);
+            for (const int next : graph[vertex]) {
                 if (next == parent_[vertex]) continue;
                 assert(parent_[next] == -1 && "HLD input must be a tree");
                 parent_[next] = vertex;
@@ -45,8 +44,7 @@ public:
         for (auto iterator = order.rbegin(); iterator != order.rend(); ++iterator) {
             const int vertex = *iterator;
             int largest_size = 0;
-            for (const ll next_value : graph[vertex]) {
-                const int next = static_cast<int>(next_value);
+            for (const int next : graph[vertex]) {
                 if (parent_[next] != vertex) continue;
                 subtree_size_[vertex] += subtree_size_[next];
                 if (subtree_size_[next] > largest_size) {
@@ -68,8 +66,7 @@ public:
                 vertex_at_[timer++] = vertex;
 
                 vector<int> light_children;
-                for (const ll next_value : graph[vertex]) {
-                    const int next = static_cast<int>(next_value);
+                for (const int next : graph[vertex]) {
                     if (parent_[next] == vertex && next != heavy_child_[vertex]) {
                         light_children.push_back(next);
                     }

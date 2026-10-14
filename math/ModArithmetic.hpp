@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../template.hpp"
+#include "../common.hpp"
 
 template <class Integer>
 constexpr Integer mod(Integer value, Integer modulus) {

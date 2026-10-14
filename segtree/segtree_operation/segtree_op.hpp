@@ -3,3 +3,4 @@
 // Backward-compatible entry point.
 #include "../Monoids.hpp"
 #include "../BinarySearch.hpp"
+#include "../BracketSequence.hpp"

@@ -6,12 +6,19 @@
 
 ```sh
 g++ -std=gnu++17 -O2 -Wall -Wextra -Wshadow -I. \
-  tests/all_headers_compile.cpp -o /tmp/fib_all_headers
+  _fib/tests/all_headers_compile.cpp -o /tmp/fib_all_headers
 
 g++ -std=gnu++17 -O2 -Wall -Wextra -Wshadow -I. \
-  tests/library_unit_test.cpp -o /tmp/fib_library_unit
+  _fib/tests/library_unit_test.cpp -o /tmp/fib_library_unit
 /tmp/fib_library_unit
+
+g++ -std=gnu++17 -O2 -Wall -Wextra -Wshadow -I. \
+  _fib/tests/generic_api_test.cpp -o /tmp/fib_generic_api
+/tmp/fib_generic_api
 ```
+
+`generic_api_test.cpp` は普通の include と独自 main、int グラフ、double 重み、
+ACL へ直接渡す14種類の Monoid、単位元・結合則・区間積・合成順序を検証します。
 
 `library_unit_test.cpp` は固定 seed のランダムテストで、HLD の順序、方向別 rerooting、
 LowLink、cycle 構築、Dijkstra、Li Chao Tree、Rolling Hash、Potential DSU、64-bit
@@ -31,7 +38,10 @@ VS Code の C++ Dependency Injector / Library Checker 画面からテストを�
 Bundler が対象ヘッダと依存先を展開し、公式 generator と checker で検証できます。
 再検証時はヘッダ変更を反映するため依存を再展開してください。
 
-## 現在の公式検証
+## 保存済みの公式検証
+
+以下は API 変更前の検証結果です。今回の変更後は上記ローカルテストで検証しています。
+`*.test.cpp` 内の展開済みコードは旧 snapshot のため、公式再検証前に Bundler で依存を再展開してください。
 
 | Library Checker problem | Driver | Result |
 |---|---|---:|

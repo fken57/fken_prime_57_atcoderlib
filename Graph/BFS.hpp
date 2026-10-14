@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../template.hpp"
+#include "../common.hpp"
 
 struct BFSResult {
     vll dist;
@@ -34,8 +34,7 @@ inline BFSResult bfs(const Graph& graph, const vector<int>& sources) {
     while (!queue.empty()) {
         const int vertex = queue.front();
         queue.pop();
-        for (const ll next_value : graph[vertex]) {
-            const int next = static_cast<int>(next_value);
+        for (const int next : graph[vertex]) {
             if (result.dist[next] != inf) continue;
             result.dist[next] = result.dist[vertex] + 1;
             result.parent[next] = vertex;

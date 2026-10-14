@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../templete.hpp"
+#include "../common.hpp"
 
 template<typename T>
 struct MatrixPow{

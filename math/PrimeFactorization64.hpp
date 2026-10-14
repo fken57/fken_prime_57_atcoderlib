@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../template.hpp"
+#include "../common.hpp"
 
 inline uint64_t multiply_mod_u64(uint64_t left,
                                  uint64_t right,

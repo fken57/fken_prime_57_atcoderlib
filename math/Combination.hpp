@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../template.hpp"
+#include "../common.hpp"
 
 // Factorial-based combinations for a prime modulus.
 // The largest precomputed n must be smaller than Mint::mod().

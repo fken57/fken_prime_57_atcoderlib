@@ -1,4 +1,4 @@
-#include "../templete.hpp"
+#include "../common.hpp"
 
 vll Compress(vll A){
     ll Asize=A.size();

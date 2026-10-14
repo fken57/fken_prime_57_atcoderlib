@@ -2,9 +2,14 @@
 
 ## 共通グラフ型
 
-- 非重み付き: `Graph = vector<vector<ll>>`
+- 非重み付き: `Graph = vector<vector<int>>`
 - 重み付き: `WeightedGraphT<Cost>`、`WeightedEdge<Cost>{to, weight, id}`
 - `WeightedGraph` は `Cost = ll`
+
+どちらも vector の別名で、専用グラフクラスはありません。頂点番号は `int`、重みは `Cost` です。
+BFS / TreeDoubling / HLD は通常の `vector<vector<int>>` を直接渡せます。
+Dijkstra / WeightedTreeBFS / 木の直径は `WeightedGraphT<Cost>` に対応します。
+各ヘッダは `main` を定義しないので、通常の include でも利用できます。
 
 ## BFS / Dijkstra
 

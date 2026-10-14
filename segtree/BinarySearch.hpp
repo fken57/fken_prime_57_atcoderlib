@@ -22,18 +22,20 @@ int segtree_left_boundary(const SegTree& segtree,
     return segtree.min_left(right, suffix_ok);
 }
 
-// For a RangeSumSegTree containing non-negative values, returns the minimum
-// index i with sum[0, i + 1) >= target. Returns size() if it does not exist.
-template <class T>
-int segtree_prefix_lower_bound(const RangeSumSegTree<T>& segtree,
-                               const T& target) {
+// For a sum segtree containing non-negative values, returns the minimum
+// index i with sum[0, i + 1) >= target. Returns the original array length if it does not exist.
+template <class T, auto Op, auto E, class Target>
+int segtree_prefix_lower_bound(const atcoder::segtree<T, Op, E>& segtree,
+                               Target target_value) {
+    const T target = static_cast<T>(target_value);
     if (!(T{} < target)) return 0;
     return segtree.max_right(0, [&](const T& sum) { return sum < target; });
 }
 
 // Zero-indexed order statistic for a frequency segment tree.
-template <class T>
-int segtree_kth(const RangeSumSegTree<T>& segtree, const T& k) {
+template <class T, auto Op, auto E, class Index>
+int segtree_kth(const atcoder::segtree<T, Op, E>& segtree, Index index) {
+    const T k = static_cast<T>(index);
     assert(!(k < T{}) && "segtree_kth requires k >= 0");
     return segtree_prefix_lower_bound(segtree, k + T{1});
 }

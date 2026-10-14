@@ -5,6 +5,9 @@
 新しい標準エントリは `template.hpp` です。旧来の `templete.hpp` は
 `template.hpp` を include する互換 shim として残しています。
 
+共通定義は `common.hpp` にあり、`template.hpp` はそれに提出用 `solve/main` を加えます。
+ライブラリヘッダは `common.hpp` に依存し、`main` を定義しません。
+
 `template.hpp` が標準で提供するものは次のとおりです。
 
 - `<bits/stdc++.h>` と AtCoder Library

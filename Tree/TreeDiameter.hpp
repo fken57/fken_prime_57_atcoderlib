@@ -3,20 +3,24 @@
 #include "../Graph/BFS.hpp"
 #include "WeightedTreeBFS.hpp"
 
-struct TreeDiameter {
-    ll dir = 0;
-    pair<ll, ll> edge = {-1, -1};
-    vll path;
+template <class Cost>
+struct TreeDiameterT {
+    Cost dir{};
+    pair<int, int> edge = {-1, -1};
+    vector<int> path;
 };
+
+using TreeDiameter = TreeDiameterT<ll>;
 
 namespace fib_tree_diameter_detail {
 
-inline int farthest_vertex(const vll& dist) {
+template <class Cost>
+int farthest_vertex(const vector<Cost>& dist) {
     return static_cast<int>(max_element(dist.begin(), dist.end()) - dist.begin());
 }
 
-inline vll restore_path(int target, const vector<int>& parent) {
-    vll path;
+inline vector<int> restore_path(int target, const vector<int>& parent) {
+    vector<int> path;
     for (int vertex = target; vertex != -1; vertex = parent[vertex]) {
         path.push_back(vertex);
     }
@@ -24,10 +28,12 @@ inline vll restore_path(int target, const vector<int>& parent) {
     return path;
 }
 
-inline pair<vll, vector<int>> weighted_distances(const WeightedGraph& graph,
-                                                 int start) {
+template <class Cost>
+pair<vector<Cost>, vector<int>> weighted_distances(
+    const WeightedGraphT<Cost>& graph, int start) {
     const int n = static_cast<int>(graph.size());
-    vll dist(n, inf);
+    const Cost infinity = numeric_limits<Cost>::max() / Cost(4);
+    vector<Cost> dist(n, infinity);
     vector<int> parent(n, -1);
     queue<int> queue;
     dist[start] = 0;
@@ -37,7 +43,7 @@ inline pair<vll, vector<int>> weighted_distances(const WeightedGraph& graph,
         queue.pop();
         for (const auto& edge : graph[vertex]) {
             if (edge.to == parent[vertex]) continue;
-            if (dist[edge.to] != inf) continue;
+            if (dist[edge.to] != infinity) continue;
             parent[edge.to] = vertex;
             dist[edge.to] = dist[vertex] + edge.weight;
             queue.push(edge.to);
@@ -60,7 +66,8 @@ inline TreeDiameter ExecuteTreeDiameter(const Graph& graph) {
 }
 
 // Requires a connected tree with non-negative edge weights.
-inline TreeDiameter ExecuteTreeDiameter(const WeightedGraph& graph) {
+template <class Cost>
+TreeDiameterT<Cost> ExecuteTreeDiameter(const WeightedGraphT<Cost>& graph) {
     if (graph.empty()) return {};
     const auto [first_dist, first_parent] =
         fib_tree_diameter_detail::weighted_distances(graph, 0);

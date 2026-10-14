@@ -14,6 +14,7 @@
 #include "../math/PrimeFactorization64.hpp"
 #include "../math/Sieve.hpp"
 #include "../segtree/BinarySearch.hpp"
+#include "../segtree/BracketSequence.hpp"
 
 namespace {
 
@@ -51,25 +52,36 @@ void test_template_and_segtree() {
                                  [](int value) { return value <= 3; }) == 2);
 
     const string brackets = "(()())()";
-    vector<BracketValue> bracket_values;
+    vector<BracketBalance> bracket_values;
     for (const char bracket : brackets) {
-        bracket_values.push_back(BracketMonoid::from_char(bracket));
+        bracket_values.push_back(
+            BracketBalanceMonoid::from_number(bracket == '(' ? 1 : -1));
     }
-    BracketSegTree bracket_tree(bracket_values);
-    assert(BracketMonoid::is_valid(bracket_tree.all_prod()));
-    assert(BracketMonoid::is_valid(bracket_tree.prod(1, 3)));
-    assert(!BracketMonoid::is_valid(bracket_tree.prod(0, 3)));
+    BracketBalanceSegTree bracket_tree(bracket_values);
+    assert(BracketBalanceMonoid::is_valid(bracket_tree.all_prod()));
+    assert(BracketBalanceMonoid::is_valid(bracket_tree.prod(1, 3)));
+    assert(!BracketBalanceMonoid::is_valid(bracket_tree.prod(0, 3)));
 
-    vector<BracketValue> invalid_values;
+    vector<BracketBalance> invalid_values;
     for (const char bracket : string("())")) {
-        invalid_values.push_back(BracketMonoid::from_char(bracket));
+        invalid_values.push_back(
+            BracketBalanceMonoid::from_number(bracket == '(' ? 1 : -1));
     }
-    BracketSegTree invalid_brackets(invalid_values);
+    BracketBalanceSegTree invalid_brackets(invalid_values);
     assert(segtree_first_break(
                invalid_brackets, 0,
-               [](BracketValue value) {
-                   return BracketMonoid::is_prefix_valid(value);
+               [](BracketBalance value) {
+                   return BracketBalanceMonoid::is_prefix_valid(value);
                }) == 2);
+
+    BracketSequence sequence("(()())");
+    assert(sequence.is_valid());
+    assert(sequence.is_valid(1, 3));
+    sequence.set(1, ')');
+    assert(!sequence.is_valid());
+    assert(sequence.first_invalid() == 2);
+    sequence.toggle(1);
+    assert(sequence.is_valid());
 }
 
 void test_combination_and_sieve() {

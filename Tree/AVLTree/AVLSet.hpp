@@ -1,4 +1,4 @@
-#include "../../templete.hpp"
+#include "../../common.hpp"
 
 struct AVLset{
     struct Node{
